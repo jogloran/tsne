@@ -1,0 +1,13 @@
+[package]
+name = "tsne"
+version = "0.1.0"
+authors = ["Daniel Tse <daniel@overpunch.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+"mnist" = "*"
+"ndarray" = "0.12"
+"itertools" = "*"
+"ndarray-linalg" = "*"
