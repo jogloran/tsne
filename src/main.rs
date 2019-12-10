@@ -20,13 +20,13 @@ use std::mem;
 use std::collections::HashMap;
 use std::f64;
 
-const MAX_PERP_SEARCH_ITERS: u32 = 15;
+const MAX_PERP_SEARCH_ITERS: u32 = 10;
 const PERP: f64 = 30.0;
 const LR: f64 = 35f64;
 const MAX_SGD_ITERS: usize = 1000;
 const WIDTH: usize = 768;
 const HEIGHT: usize = 768;
-const TRN_SIZE: usize = 400;
+const TRN_SIZE: usize = 800;
 const SIMILARITY_EXAGG_FACTOR: f64 = 12.0;
 const SIMILARITY_EXAGG_STOP_ITER: usize = 100;
 
