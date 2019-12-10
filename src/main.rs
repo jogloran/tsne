@@ -21,7 +21,12 @@ use libc;
 use std::mem;
 use std::collections::HashMap;
 
-const PERP: u32 = 50;
+const MAX_PERP_SEARCH_ITERS: u32 = 10;
+const PERP: f64 = 40.0;
+const LR: f64 = 50f64;
+const MAX_SGD_ITERS: i32 = 1000;
+const WIDTH: usize = 1024;
+const HEIGHT: usize = 768;
 
 type Data = Array2<f64>;
 type DistanceMatrix = Array2<f64>; // (ndatum, ndatum)
@@ -52,13 +57,13 @@ fn joint_t_dist(dists: &DistanceMatrix) -> Array2<f64> {
         1.0 / (1.0 + dists[[k, l]])
     });
     all.diag_mut().fill(0.);
-    let denom = all.sum() - all.diag().sum();
+    let denom = all.sum();
     all / denom
 }
 
 fn perp_search(dists: &DistanceMatrix, data: &Data, i: usize, max_iters: u32, target_perp: f64) ->
 (Array1<f64>, f64) {
-    let mut s_min = 0.001;
+    let mut s_min = 0.00001;
     let mut s_max = 100.;
     let mut s = s_min + (s_max - s_min) / 2.;
     let mut iter = 0;
@@ -86,7 +91,7 @@ fn conditional_dist_search(dists: &DistanceMatrix, data: &Data, target_perp: f64
 
     let mut result = Array2::zeros((n, n));
     for i in 0..n {
-        let (p_ji, s_i) = perp_search(&dists, &data, i, PERP, target_perp);
+        let (p_ji, s_i) = perp_search(&dists, &data, i, MAX_PERP_SEARCH_ITERS, target_perp);
         result.row_mut(i).assign(&p_ji);
     }
 
@@ -100,17 +105,17 @@ fn symmetrised_dist_search(dists: &DistanceMatrix, data: &Data, target_perp: f64
 
     let mut result = Array2::zeros((n, n));
     for i in 0..n {
-        let (p_ji, s_i) = perp_search(&dists, &data, i, PERP, target_perp);
+        let (p_ji, s_i) = perp_search(&dists, &data, i, MAX_PERP_SEARCH_ITERS, target_perp);
         result.row_mut(i).assign(&p_ji);
     }
     let mut result2 = Array2::zeros((n, n));
     for j in 0..n {
-        let (p_ji, s_i) = perp_search(&dists, &data, j, PERP, target_perp);
+        let (p_ji, s_i) = perp_search(&dists, &data, j, MAX_PERP_SEARCH_ITERS, target_perp);
         result2.row_mut(j).assign(&p_ji);
     }
 
     let mut symmetrised = Array2::zeros((n, n));
-    symmetrised = (result + result2.t()) / 2.0;
+    symmetrised = (result + result2) / (2.0f64 * (n as f64));
     symmetrised
 }
 
@@ -133,7 +138,7 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>)
         let mut sum = Array1::zeros(2);
         for j in 0..n {
             if i == j {
-                break;
+                continue;
             }
 //            println!("1 {}", &proj.row(i));
 //            println!("2 {}", &proj.row(j));
@@ -142,10 +147,11 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>)
 //            println!("c {}", 4. * (p_ij[[i, j]] - q_ij[[i, j]])
 //                * (proj.row(i).borrow() - proj.row(j).borrow())
 //                / (1. + norm_sq(&proj.row(i), &proj.row(j))));
-            sum = sum + 4. * (p_ij[[i, j]] - q_ij[[i, j]])
+            sum = sum + (p_ij[[i, j]] - q_ij[[i, j]])
                 * (proj.row(i).borrow() - proj.row(j).borrow())
                 / (1. + norm_sq(&proj.row(i), &proj.row(j)));
         }
+        sum *= 4.0;
 //        println!("sum {}", sum);
 
         result.row_mut(i).assign(&sum);
@@ -201,24 +207,23 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
 //        println!("pt: {}", pt);
         let px = (pt[0] - min_x) / (max_x - min_x);
         let py = (pt[1] - min_y) / (max_y - min_y);
-        assert!(px >= 0. && px <= 1.);
-        assert!(py >= 0. && py <= 1.);
-//        println!("px {} py {}", px, py);
-        let xx = (px * 639.) as usize;
-        let yy = (py * 399.) as usize;
 
-        if (xx > 0 && yy > 0 && xx < 639 && yy < 399) {
-            buf[yy * 639 + xx - 1] = *lbl_map.get(&(lbls[i] as u32)).unwrap();
-            buf[(yy - 1) * 639 + xx] = *lbl_map.get(&(lbls[i] as u32)).unwrap();
-            buf[(yy + 1) * 639 + xx] = *lbl_map.get(&(lbls[i] as u32)).unwrap();
-            buf[yy * 639 + xx + 1] = *lbl_map.get(&(lbls[i] as u32)).unwrap();
+        let xx = (px * (WIDTH as f64 - 1.0)) as usize;
+        let yy = (py * (HEIGHT as f64 - 1.0)) as usize;
+
+        let lbl_colour = *lbl_map.get(&(lbls[i] as u32)).unwrap();
+        if xx > 0 && yy > 0 && xx < (WIDTH - 1) && yy < (HEIGHT - 1) {
+            buf[yy * (WIDTH - 1) + xx - 1] = lbl_colour;
+            buf[(yy - 1) * (WIDTH - 1) + xx] = lbl_colour;
+            buf[(yy + 1) * (WIDTH - 1) + xx] = lbl_colour;
+            buf[yy * (WIDTH - 1) + xx + 1] = lbl_colour;
         }
-        buf[yy * 639 + xx] = *lbl_map.get(&(lbls[i] as u32)).unwrap();
+        buf[yy * (WIDTH - 1) + xx] = lbl_colour;
     }
 }
 
 fn main() {
-    let (trn_size, rows, cols) = (150, 28, 28);
+    let (trn_size, rows, cols) = (300, 28, 28);
     let size: i32 = trn_size * rows * cols;
 
     let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
@@ -236,11 +241,9 @@ fn main() {
     });
 
     //    println!("img {:?}", images.slice(s![1, ..]));
-    const lr: f64 = 10f64;
-    const MAX_IT: i32 = 1000;
 
-    let mut buf: Vec<u32> = vec![0; 640 * 400];
-    let mut window = match Window::new("Test", 640, 400, WindowOptions::default()) {
+    let mut buf: Vec<u32> = vec![0; WIDTH * HEIGHT];
+    let mut window = match Window::new("Test", WIDTH, HEIGHT, WindowOptions::default()) {
         Ok(win) => win,
         Err(err) => {
             println!("Unable to create window {}", err);
@@ -251,9 +254,9 @@ fn main() {
     let mut it = 0;
     let normal = Normal::new(0., 1e-4);
     let mut proj = Array::random((trn_size as usize, 2), normal);
-    for i in 0..MAX_IT {
+    for i in 0..MAX_SGD_ITERS {
         let mut dists = distances(&images);
-        let mut p_ij = symmetrised_dist_search(&dists, &images, 2.0);
+        let mut p_ij = symmetrised_dist_search(&dists, &images, PERP);
         let mut lo_dists = distances(&proj);
         let mut q_ij = joint_t_dist(&lo_dists);
 //    let mut proj = Array2::zeros((trn_size as usize, 2));
@@ -263,10 +266,10 @@ fn main() {
 //        println!("p_ij: {}", p_ij);
 //        println!("q_ij: {}", q_ij);
 //        println!("{} del: {}", i, del);
-        proj = proj + lr * del;
+        proj = proj - LR * del;
 //        println!("{} proj: {}", i, proj);
 
         update_proj(&mut buf, &proj, &trn_lbl);
-        window.update_with_buffer_size(&buf, 640, 400).unwrap();
+        window.update_with_buffer_size(&buf, WIDTH, HEIGHT).unwrap();
     }
 }
