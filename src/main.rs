@@ -22,11 +22,13 @@ use std::f64;
 
 const MAX_PERP_SEARCH_ITERS: u32 = 15;
 const PERP: f64 = 30.0;
-const LR: f64 = 50f64;
-const MAX_SGD_ITERS: i32 = 1000;
+const LR: f64 = 35f64;
+const MAX_SGD_ITERS: usize = 1000;
 const WIDTH: usize = 768;
 const HEIGHT: usize = 768;
 const TRN_SIZE: usize = 400;
+const SIMILARITY_EXAGG_FACTOR: f64 = 12.0;
+const SIMILARITY_EXAGG_STOP_ITER: usize = 100;
 
 type Data = Array2<f64>;
 type DistanceMatrix = Array2<f64>; // (ndatum, ndatum)
@@ -51,7 +53,6 @@ fn conditional_dist(dists: &DistanceMatrix, i: usize, beta: f64) -> Array1<f64> 
         if i == j {
             0.
         } else {
-//            (-d[j] / (2. * sigma_i * sigma_i)).exp()
             (-d[j] * beta).exp()
         }
     });
@@ -106,35 +107,6 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
     }
 
     (dist, beta)
-//    let mut s_min = 0.000001f64;
-//    let mut s_max = 1000f64;
-//    let mut s = 1.0;
-//    let mut iter = 0;
-//    let mut dist = conditional_dist(&dists, i, s);
-//    let mut prev_perp = 0.0;
-//    while iter < max_iters {
-////        println!("> {:?}", dist);
-//        let cand_perp = perp(&dist);
-//
-//        if target_perp < cand_perp {
-//            s_max = s;
-//        } else {
-//            s_min = s;
-//        }
-//        s = s_min + (s_max - s_min) / 2.;
-////        s = (s_max + s_min) / 2.0;
-//
-//        iter += 1;
-//
-//        dist = conditional_dist(&dists, i, s);
-//
-//        if (cand_perp - prev_perp).abs() < 0.0000001 {
-//            break;
-//        }
-//        prev_perp = cand_perp;
-//    }
-//
-//    (dist, s)
 }
 
 fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
@@ -186,7 +158,7 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
         sum *= 4.0;
         result.row_mut(i).assign(&sum);
     }
-    result + &(proj * 0.0001)
+    result + &(proj * 0.00001)
 }
 
 fn norm_sq(a: &ArrayView1<f64>, b: &ArrayView1<f64>) -> f64 {
@@ -276,15 +248,15 @@ fn main() {
     let mut proj = Array::random((trn_size as usize, 2), normal);
     let mut velocity_prev: Array2<f64> = Array2::zeros((trn_size as usize, 2));
     let dists = distances(&images);
-    let mut p_ij = symmetrised_dist_search(&dists, PERP) * 12.0;
+    let mut p_ij = symmetrised_dist_search(&dists, PERP) * SIMILARITY_EXAGG_FACTOR;
 
-    for i in 0..MAX_SGD_ITERS {
+    for i in 0usize..MAX_SGD_ITERS {
         let lo_dists = distances(&proj);
         let q_ij = joint_t_dist(&lo_dists);
 
         println!("{}", i);
-        if i == 150 {
-            p_ij /= 12.0;
+        if i == SIMILARITY_EXAGG_STOP_ITER {
+            p_ij /= SIMILARITY_EXAGG_FACTOR;
         }
 
         let del: Array2<f64> = grad(&proj, &p_ij, &q_ij, &lo_dists);
