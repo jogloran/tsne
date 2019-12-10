@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 "mnist" = "*"
 "ndarray" = "0.12"
+ndarray-linalg = { version = "0.12" }
+openblas-src = { version = "0.7.0", features = ["system"] }
 "itertools" = "*"
 "ndarray-rand" = "0.8"
 "rand" = "0.5"
