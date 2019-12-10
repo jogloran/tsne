@@ -20,9 +20,9 @@ use std::mem;
 use std::collections::HashMap;
 use std::f64;
 
-const MAX_PERP_SEARCH_ITERS: u32 = 50;
-const PERP: f64 = 20.0;
-const LR: f64 = 30f64;
+const MAX_PERP_SEARCH_ITERS: u32 = 15;
+const PERP: f64 = 30.0;
+const LR: f64 = 50f64;
 const MAX_SGD_ITERS: i32 = 1000;
 const WIDTH: usize = 768;
 const HEIGHT: usize = 768;
@@ -44,14 +44,15 @@ fn distances(data: &Data) -> DistanceMatrix {
     })
 }
 
-fn conditional_dist(dists: &DistanceMatrix, i: usize, sigma_i: f64) -> Array1<f64> {
+fn conditional_dist(dists: &DistanceMatrix, i: usize, beta: f64) -> Array1<f64> {
     let n = dists.shape()[0] as usize;
     let d = dists.slice(s![i, ..]);
     let all = Array1::from_shape_fn(n, |j| {
         if i == j {
             0.
         } else {
-            (-d[j] / (2. * sigma_i * sigma_i)).exp()
+//            (-d[j] / (2. * sigma_i * sigma_i)).exp()
+            (-d[j] * beta).exp()
         }
     });
     &all / all.sum()
@@ -71,35 +72,69 @@ fn joint_t_dist(dists: &DistanceMatrix) -> Array2<f64> {
 
 fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f64) ->
 (Array1<f64>, f64) {
-    let mut s_min = 0.000001f64;
-    let mut s_max = 1000f64;
-    let mut s = 1.0;
+    let mut beta_min = f64::NEG_INFINITY;
+    let mut beta_max = f64::INFINITY;
+    let mut beta = 1.0;
+
     let mut iter = 0;
-    let mut dist = conditional_dist(&dists, i, s);
-    let mut prev_perp = 0.0;
+
+    let mut dist = conditional_dist(&dists, i, beta);
+
     while iter < max_iters {
-//        println!("> {:?}", dist);
         let cand_perp = perp(&dist);
 
+//        println!("{} {} {} -> {}", beta_min, beta, beta_max, cand_perp);
         if target_perp < cand_perp {
-            s_max = s;
+            beta_min = beta;
+            if beta_max.is_infinite() {
+                beta *= 2.0;
+            } else {
+                beta = (beta + beta_max) / 2.0;
+            }
         } else {
-            s_min = s;
+            beta_max = beta;
+            if beta_min.is_infinite() {
+                beta /= 2.0;
+            } else {
+                beta = (beta + beta_min) / 2.0;
+            }
         }
-        s = s_min + (s_max - s_min) / 2.;
-//        s = (s_max + s_min) / 2.0;
 
         iter += 1;
 
-        dist = conditional_dist(&dists, i, s);
-
-        if (cand_perp - prev_perp).abs() < 0.0000001 {
-            break;
-        }
-        prev_perp = cand_perp;
+        dist = conditional_dist(&dists, i, beta);
     }
 
-    (dist, s)
+    (dist, beta)
+//    let mut s_min = 0.000001f64;
+//    let mut s_max = 1000f64;
+//    let mut s = 1.0;
+//    let mut iter = 0;
+//    let mut dist = conditional_dist(&dists, i, s);
+//    let mut prev_perp = 0.0;
+//    while iter < max_iters {
+////        println!("> {:?}", dist);
+//        let cand_perp = perp(&dist);
+//
+//        if target_perp < cand_perp {
+//            s_max = s;
+//        } else {
+//            s_min = s;
+//        }
+//        s = s_min + (s_max - s_min) / 2.;
+////        s = (s_max + s_min) / 2.0;
+//
+//        iter += 1;
+//
+//        dist = conditional_dist(&dists, i, s);
+//
+//        if (cand_perp - prev_perp).abs() < 0.0000001 {
+//            break;
+//        }
+//        prev_perp = cand_perp;
+//    }
+//
+//    (dist, s)
 }
 
 fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
@@ -151,7 +186,7 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
         sum *= 4.0;
         result.row_mut(i).assign(&sum);
     }
-    result
+    result + &(proj * 0.0001)
 }
 
 fn norm_sq(a: &ArrayView1<f64>, b: &ArrayView1<f64>) -> f64 {
@@ -183,11 +218,7 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
     lbl_map.insert(8, 0xff_44_00_ff);
     lbl_map.insert(9, 0xff_ff_8a_a8);
     unsafe {
-        libc::memset(
-            buf.as_mut_ptr() as _,
-            0,
-            buf.len() * mem::size_of::<u32>(),
-        );
+        libc::memset(buf.as_mut_ptr() as _, 0, buf.len() * mem::size_of::<u32>());
     }
     let xs = proj.slice(s![.., 0]);
     let ys = proj.slice(s![.., 1]);
@@ -202,17 +233,17 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
         let px = (pt[0] - min_x) / (max_x - min_x);
         let py = (pt[1] - min_y) / (max_y - min_y);
 
-        let xx = (px * (WIDTH as f64 - 1.0)) as usize;
-        let yy = (py * (HEIGHT as f64 - 1.0)) as usize;
+        let xx = (px * WIDTH as f64) as usize;
+        let yy = (py * HEIGHT as f64) as usize;
 
         let lbl_colour = *lbl_map.get(&(lbls[i] as u32)).unwrap();
-        if xx > 0 && yy > 0 && xx < (WIDTH - 1) && yy < (HEIGHT - 1) {
-            buf[yy * (WIDTH - 1) + xx - 1] = lbl_colour;
-            buf[(yy - 1) * (WIDTH - 1) + xx] = lbl_colour;
-            buf[(yy + 1) * (WIDTH - 1) + xx] = lbl_colour;
-            buf[yy * (WIDTH - 1) + xx + 1] = lbl_colour;
+        if xx > 0 && yy > 0 && xx < WIDTH - 1 && yy < HEIGHT - 1 {
+            buf[yy * WIDTH + xx - 1] = lbl_colour;
+            buf[(yy - 1) * WIDTH + xx] = lbl_colour;
+            buf[(yy + 1) * WIDTH + xx] = lbl_colour;
+            buf[yy * WIDTH + xx + 1] = lbl_colour;
+            buf[yy * WIDTH + xx] = lbl_colour;
         }
-        buf[yy * (WIDTH - 1) + xx] = lbl_colour;
     }
 }
 
@@ -225,9 +256,6 @@ fn main() {
         .validation_set_length(100)
         .test_set_length(100)
         .finalize();
-    let mut lbl = trn_lbl.clone();
-    lbl.sort();
-    println!("lbl {:?}", lbl);
 
     let u8_images = Array::from_vec(trn_img)
         .into_shape((trn_size as usize, (rows * cols) as usize)).unwrap();
@@ -248,19 +276,24 @@ fn main() {
     let mut proj = Array::random((trn_size as usize, 2), normal);
     let mut velocity_prev: Array2<f64> = Array2::zeros((trn_size as usize, 2));
     let dists = distances(&images);
-    let p_ij = symmetrised_dist_search(&dists, PERP);
+    let mut p_ij = symmetrised_dist_search(&dists, PERP) * 12.0;
 
-    for _ in 0..MAX_SGD_ITERS {
+    for i in 0..MAX_SGD_ITERS {
         let lo_dists = distances(&proj);
         let q_ij = joint_t_dist(&lo_dists);
+
+        println!("{}", i);
+        if i == 150 {
+            p_ij /= 12.0;
+        }
 
         let del: Array2<f64> = grad(&proj, &p_ij, &q_ij, &lo_dists);
         let velocity = LR * &del + 0.9 * &velocity_prev;
         velocity_prev.assign(&velocity);
-        proj = proj - velocity;
+        proj = &proj - &velocity;
 
-        let avg = proj.sum_axis(Axis(0)) / proj.len() as f64;
-        proj = proj - avg;
+        let avg: Array1<f64> = proj.sum_axis(Axis(0)) / proj.len() as f64;
+        proj = &proj - &avg;
 
         update_proj(&mut buf, &proj, &trn_lbl);
         window.update_with_buffer_size(&buf, WIDTH, HEIGHT).unwrap();
