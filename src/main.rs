@@ -20,10 +20,11 @@ use rand::distributions::{Normal, Range};
 use libc;
 use std::mem;
 use std::collections::HashMap;
+use std::f64;
 
-const MAX_PERP_SEARCH_ITERS: u32 = 10;
-const PERP: f64 = 40.0;
-const LR: f64 = 50f64;
+const MAX_PERP_SEARCH_ITERS: u32 = 20;
+const PERP: f64 = 10.0;
+const LR: f64 = 10f64;
 const MAX_SGD_ITERS: i32 = 1000;
 const WIDTH: usize = 1024;
 const HEIGHT: usize = 768;
@@ -44,9 +45,12 @@ fn conditional_dist(dists: &DistanceMatrix, i: usize, sigma_i: f64) -> Array1<f6
     let n = dists.shape()[0] as usize;
     let d = dists.slice(s![i, ..]);
     let mut all = Array1::from_shape_fn(n, |j| {
-        (-d[j] / (2. * sigma_i * sigma_i)).exp()
+        if i == j {
+            0.
+        } else {
+            (-d[j] / (2. * sigma_i * sigma_i)).exp()
+        }
     });
-    all[i] = 0.0;
     all /= all.sum();
     all
 }
@@ -54,33 +58,43 @@ fn conditional_dist(dists: &DistanceMatrix, i: usize, sigma_i: f64) -> Array1<f6
 fn joint_t_dist(dists: &DistanceMatrix) -> Array2<f64> {
     let n = dists.shape()[0] as usize;
     let mut all = Array2::from_shape_fn((n, n), |(k, l)| {
-        1.0 / (1.0 + dists[[k, l]])
+        if k == l {
+            0.
+        } else {
+            1.0 / (1.0 + dists[[k, l]])
+        }
     });
-    all.diag_mut().fill(0.);
     let denom = all.sum();
     all / denom
 }
 
 fn perp_search(dists: &DistanceMatrix, data: &Data, i: usize, max_iters: u32, target_perp: f64) ->
 (Array1<f64>, f64) {
-    let mut s_min = 0.00001;
-    let mut s_max = 100.;
-    let mut s = s_min + (s_max - s_min) / 2.;
+    let mut s_min = 0.001f64;
+    let mut s_max = 100f64;
+    let mut s = 1.0;
     let mut iter = 0;
     let mut dist = conditional_dist(&dists, i, s);
+    let mut prev_perp = 0.0;
     while iter < max_iters {
 //        println!("> {:?}", dist);
         let cand_perp = perp(&dist);
+
         if target_perp < cand_perp {
             s_max = s;
         } else {
             s_min = s;
         }
         s = s_min + (s_max - s_min) / 2.;
+
         iter += 1;
-//        println!("iter: {} s: {}, perp: {}", iter, s, cand_perp);
 
         dist = conditional_dist(&dists, i, s);
+
+        if (cand_perp - prev_perp).abs() < 0.0000001 {
+            break;
+        }
+        prev_perp = cand_perp;
     }
 
     (dist, s)
@@ -202,7 +216,7 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
     let min_y = vmin(&ys);
     let max_y = vmax(&ys);
 //    println!("xs {}", xs);
-//    println!("min x {} max {}", min_x, max_x);
+//    println!("min x {} max x {}", min_x, max_x);
     for (i, pt) in proj.outer_iter().enumerate() {
 //        println!("pt: {}", pt);
         let px = (pt[0] - min_x) / (max_x - min_x);
@@ -254,11 +268,12 @@ fn main() {
     let mut it = 0;
     let normal = Normal::new(0., 1e-4);
     let mut proj = Array::random((trn_size as usize, 2), normal);
+    let mut velocity_prev: Array2<f64> = Array2::zeros((trn_size as usize, 2));
     for i in 0..MAX_SGD_ITERS {
         let mut dists = distances(&images);
         let mut p_ij = symmetrised_dist_search(&dists, &images, PERP);
-        let mut lo_dists = distances(&proj);
-        let mut q_ij = joint_t_dist(&lo_dists);
+        let lo_dists = distances(&proj);
+        let q_ij = joint_t_dist(&lo_dists);
 //    let mut proj = Array2::zeros((trn_size as usize, 2));
 //        println!("proj: {}", proj);
 
@@ -266,7 +281,12 @@ fn main() {
 //        println!("p_ij: {}", p_ij);
 //        println!("q_ij: {}", q_ij);
 //        println!("{} del: {}", i, del);
-        proj = proj - LR * del;
+        let velocity = LR * &del + 0.9 * &velocity_prev;
+        velocity_prev.assign(&velocity);
+        proj = proj - velocity;
+
+        let avg = proj.sum() / (proj.len() as f64);
+        proj -= avg;
 //        println!("{} proj: {}", i, proj);
 
         update_proj(&mut buf, &proj, &trn_lbl);
