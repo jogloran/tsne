@@ -33,7 +33,7 @@
             <entry file="file://$PROJECT_DIR$/Cargo.toml">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="308">
-                  <caret line="11" column="37" lean-forward="true" selection-start-line="11" selection-start-column="37" selection-end-line="11" selection-end-column="37" />
+                  <caret line="11" column="37" selection-start-line="11" selection-start-column="37" selection-end-line="11" selection-end-column="37" />
                 </state>
               </provider>
             </entry>
@@ -41,13 +41,13 @@
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src/main.rs">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="757">
-                  <caret line="254" column="28" lean-forward="true" selection-start-line="254" selection-start-column="28" selection-end-line="254" selection-end-column="28" />
+                <state relative-caret-position="464">
+                  <caret line="263" lean-forward="true" selection-start-line="263" selection-end-line="263" />
                   <folding>
-                    <element signature="e#3631#3632#0" expanded="true" />
-                    <element signature="e#3660#3661#0" expanded="true" />
-                    <element signature="e#4397#4398#0" expanded="true" />
-                    <element signature="e#4425#4426#0" expanded="true" />
+                    <element signature="e#3363#3364#0" expanded="true" />
+                    <element signature="e#3398#3399#0" expanded="true" />
+                    <element signature="e#4367#4368#0" expanded="true" />
+                    <element signature="e#4395#4396#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -75,7 +75,7 @@
             <entry file="file://$PROJECT_DIR$/../.cargo/registry/src/github.com-1ecc6299db9ec823/num-traits-0.2.10/src/real.rs">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="254">
-                  <caret line="788" column="14" lean-forward="true" selection-start-line="788" selection-start-column="14" selection-end-line="788" selection-end-column="14" />
+                  <caret line="788" column="14" selection-start-line="788" selection-start-column="14" selection-end-line="788" selection-end-column="14" />
                 </state>
               </provider>
             </entry>
@@ -87,11 +87,13 @@
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src/main.rs">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="280">
-                  <caret line="28" column="26" selection-start-line="28" selection-start-column="26" selection-end-line="28" selection-end-column="26" />
+                <state relative-caret-position="365">
+                  <caret line="31" column="26" selection-start-line="31" selection-start-column="26" selection-end-line="31" selection-end-column="26" />
                   <folding>
-                    <element signature="e#3195#3196#0" expanded="true" />
-                    <element signature="e#3230#3231#0" expanded="true" />
+                    <element signature="e#3363#3364#0" expanded="true" />
+                    <element signature="e#3398#3399#0" expanded="true" />
+                    <element signature="e#4367#4368#0" expanded="true" />
+                    <element signature="e#4395#4396#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
@@ -115,6 +117,7 @@
       <find>2.0</find>
       <find>conditional_dist</find>
       <find>round(</find>
+      <find>img_width</find>
     </findStrings>
     <replaceStrings>
       <replace>PERP,</replace>
@@ -238,7 +241,7 @@
     <editor active="true" />
     <layout>
       <window_info id="Captures" order="0" weight="0.25" />
-      <window_info content_ui="combo" id="Project" order="1" visible="true" weight="0.110135674" />
+      <window_info active="true" content_ui="combo" id="Project" order="1" visible="true" weight="0.110135674" />
       <window_info id="Structure" order="2" side_tool="true" />
       <window_info id="Image Layers" order="3" />
       <window_info id="Designer" order="4" />
@@ -317,14 +320,14 @@
     <entry file="file://$PROJECT_DIR$/Cargo.toml">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="308">
-          <caret line="11" column="37" lean-forward="true" selection-start-line="11" selection-start-column="37" selection-end-line="11" selection-end-column="37" />
+          <caret line="11" column="37" selection-start-line="11" selection-start-column="37" selection-end-line="11" selection-end-column="37" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/../.cargo/registry/src/github.com-1ecc6299db9ec823/num-traits-0.2.10/src/real.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="254">
-          <caret line="788" column="14" lean-forward="true" selection-start-line="788" selection-start-column="14" selection-end-line="788" selection-end-column="14" />
+          <caret line="788" column="14" selection-start-line="788" selection-start-column="14" selection-end-line="788" selection-end-column="14" />
         </state>
       </provider>
     </entry>
@@ -337,11 +340,13 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="280">
-          <caret line="28" column="26" selection-start-line="28" selection-start-column="26" selection-end-line="28" selection-end-column="26" />
+        <state relative-caret-position="365">
+          <caret line="31" column="26" selection-start-line="31" selection-start-column="26" selection-end-line="31" selection-end-column="26" />
           <folding>
-            <element signature="e#3195#3196#0" expanded="true" />
-            <element signature="e#3230#3231#0" expanded="true" />
+            <element signature="e#3363#3364#0" expanded="true" />
+            <element signature="e#3398#3399#0" expanded="true" />
+            <element signature="e#4367#4368#0" expanded="true" />
+            <element signature="e#4395#4396#0" expanded="true" />
           </folding>
         </state>
       </provider>

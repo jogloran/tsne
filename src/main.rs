@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::f64;
 use rayon::prelude::*;
 
-const MAX_PERP_SEARCH_ITERS: u32 = 15;
+const MAX_PERP_SEARCH_ITERS: u32 = 10;
 const PERP: f64 = 30.0;
 const LR: f64 = 45f64;
 const MAX_SGD_ITERS: usize = 1000;
@@ -32,6 +32,21 @@ const HEIGHT: usize = 768;
 const TRN_SIZE: usize = 1000;
 const SIMILARITY_EXAGG_FACTOR: f64 = 12.0;
 const SIMILARITY_EXAGG_STOP_ITER: usize = 100;
+const IMG_WIDTH: usize = 28;
+const IMG_HEIGHT: usize = 28;
+
+const MAP_COLOURS: [u32; 10] = [
+    0xff_33_ee_22,
+    0xff_83_33_fc,
+    0xff_ad_00_bb,
+    0xff_cc_dd_30,
+    0xff_8a_c3_30,
+    0xff_99_a0_b4,
+    0xff_da_b3_03,
+    0xff_03_dd_a3,
+    0xff_44_00_ff,
+    0xff_ff_8a_a8
+];
 
 type Data = Array2<f64>;
 type DistanceMatrix = Array2<f64>; // (ndatum, ndatum)
@@ -165,7 +180,7 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
     }).flatten().collect();
     // println!("d {:?}", d);
     let mut result = Array::from_shape_vec((n, 2), d).unwrap();
-            //result.row_mut(i).assign(&sum);
+    //result.row_mut(i).assign(&sum);
     result + &(proj * 0.00001)
 }
 
@@ -190,20 +205,9 @@ fn convert(n: u8) -> u32 {
     0xff000000 | (v << 16) | (v << 8) | v
 }
 
-fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, imgs: &Array2<u8>) {
+fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, maybe_imgs: Option<&Array2<u8>>) {
     let mut rng = rand::thread_rng();
 
-    let mut lbl_map = HashMap::new();
-    lbl_map.insert(0, 0xff_33_ee_22);
-    lbl_map.insert(1, 0xff_83_33_fc);
-    lbl_map.insert(2, 0xff_ad_00_bb);
-    lbl_map.insert(3, 0xff_cc_dd_30);
-    lbl_map.insert(4, 0xff_8a_c3_30);
-    lbl_map.insert(5, 0xff_99_a0_b4);
-    lbl_map.insert(6, 0xff_da_b3_03);
-    lbl_map.insert(7, 0xff_03_dd_a3);
-    lbl_map.insert(8, 0xff_44_00_ff);
-    lbl_map.insert(9, 0xff_ff_8a_a8);
     unsafe {
         libc::memset(buf.as_mut_ptr() as _, 0, buf.len() * mem::size_of::<u32>());
     }
@@ -213,17 +217,15 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, imgs: &Ar
     let max_x = vmax(&xs);
     let min_y = vmin(&ys);
     let max_y = vmax(&ys);
-//    println!("xs {}", xs);
-//    println!("min x {} max x {}", min_x, max_x);
+
     for (i, pt) in proj.outer_iter().enumerate() {
-//        println!("pt: {}", pt);
         let px = (pt[0] - min_x) / (max_x - min_x);
         let py = (pt[1] - min_y) / (max_y - min_y);
 
         let xx = (px * WIDTH as f64) as usize;
         let yy = (py * HEIGHT as f64) as usize;
 
-        let lbl_colour = *lbl_map.get(&(lbls[i] as u32)).unwrap();
+        let lbl_colour = MAP_COLOURS[lbls[i] as usize];
         if xx > 0 && yy > 0 && xx < WIDTH - 1 && yy < HEIGHT - 1 {
             buf[yy * WIDTH + xx - 1] = lbl_colour;
             buf[(yy - 1) * WIDTH + xx] = lbl_colour;
@@ -232,12 +234,12 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, imgs: &Ar
             buf[yy * WIDTH + xx] = lbl_colour;
         }
 
-        let img = imgs.slice(s![i, ..]).into_shape((28, 28)).unwrap();
-
-        if rng.gen::<f64>() < 0.1 {
-            if xx >= 28 && yy >= 28 && xx < WIDTH - 28 && yy < HEIGHT - 28 {
-                for i in 0..28 {
-                    for j in 0..28 {
+//        if rng.gen::<f64>() < 0.5 {
+        if let Some(imgs) = maybe_imgs {
+            let img = imgs.slice(s![i, ..]).into_shape((IMG_WIDTH, IMG_HEIGHT)).unwrap();
+            if xx >= IMG_WIDTH && yy >= IMG_HEIGHT && xx < WIDTH - IMG_WIDTH && yy < HEIGHT - IMG_HEIGHT {
+                for i in 0..IMG_HEIGHT {
+                    for j in 0..IMG_WIDTH {
                         buf[(yy + i) * WIDTH + (xx + j)] = convert(img[[i, j]]);
                     }
                 }
@@ -247,7 +249,7 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, imgs: &Ar
 }
 
 fn main() {
-    let (trn_size, rows, cols) = (TRN_SIZE, 28, 28);
+    let (trn_size, rows, cols) = (TRN_SIZE, IMG_WIDTH, IMG_HEIGHT);
 
     let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
         .label_format_digit()
@@ -292,7 +294,11 @@ fn main() {
         let avg: Array1<f64> = proj.sum_axis(Axis(0)) / proj.len() as f64;
         proj = &proj - &avg;
 
-        update_proj(&mut buf, &proj, &trn_lbl, &u8_images);
+        update_proj(&mut buf, &proj, &trn_lbl, if i >= SIMILARITY_EXAGG_STOP_ITER {
+            Some(&u8_images)
+        } else {
+            None
+        });
         window.update_with_buffer_size(&buf, WIDTH, HEIGHT).unwrap();
     }
 }
