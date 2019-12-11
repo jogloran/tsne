@@ -10,6 +10,7 @@ edition = "2018"
 "mnist" = "*"
 "ndarray" = "0.12"
 ndarray-linalg = { version = "0.12" }
+ndarray-parallel = "*"
 openblas-src = { version = "0.7.0", features = ["system"] }
 "itertools" = "*"
 "ndarray-rand" = "0.8"

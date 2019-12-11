@@ -3,6 +3,7 @@ extern crate minifb;
 extern crate mnist;
 extern crate ndarray;
 extern crate ndarray_rand;
+extern crate ndarray_parallel;
 extern crate rand;
 extern crate rayon;
 
@@ -22,18 +23,23 @@ use std::mem;
 use std::collections::HashMap;
 use std::f64;
 use rayon::prelude::*;
+//use ndarray::parallel::prelude::*;
+use ndarray_parallel::NdarrayIntoParallelIterator;
+use std::time::{Duration, Instant};
+use ndarray_parallel::prelude::ParMap;
 
-const MAX_PERP_SEARCH_ITERS: u32 = 10;
-const PERP: f64 = 30.0;
-const LR: f64 = 45f64;
-const MAX_SGD_ITERS: usize = 1000;
+const MAX_PERP_SEARCH_ITERS: u32 = 20;
+const PERP: f64 = 10.0;
+const LR: f64 = 25f64;
+const MAX_SGD_ITERS: usize = 10000;
 const WIDTH: usize = 768;
 const HEIGHT: usize = 768;
-const TRN_SIZE: usize = 1000;
+const TRN_SIZE: usize = 500;
 const SIMILARITY_EXAGG_FACTOR: f64 = 12.0;
 const SIMILARITY_EXAGG_STOP_ITER: usize = 100;
 const IMG_WIDTH: usize = 28;
 const IMG_HEIGHT: usize = 28;
+const SHOW_IMGS: bool = false;
 
 const MAP_COLOURS: [u32; 10] = [
     0xff_33_ee_22,
@@ -53,6 +59,24 @@ type DistanceMatrix = Array2<f64>; // (ndatum, ndatum)
 
 fn distances(data: &Data) -> DistanceMatrix {
     let n: usize = data.shape()[0];
+
+    let mut vs = (0..n * n).into_par_iter().map(|idx| {
+        let i = idx / n;
+        let j = idx % n;
+        if i == j {
+            0.
+        } else {
+            let xi = data.slice(s![i, ..]);
+            let xj = data.slice(s![j, ..]);
+            norm_sq(&xi, &xj)
+        }
+    }).collect();
+
+    Array2::from_shape_vec((n, n), vs).unwrap()
+}
+
+fn distances_serial(data: &Data) -> DistanceMatrix {
+    let n = data.shape()[0] as usize;
     Array2::from_shape_fn((n, n), |(i, j)| {
         if i == j {
             0.
@@ -78,6 +102,12 @@ fn conditional_dist(dists: &DistanceMatrix, i: usize, beta: f64) -> Array1<f64> 
 }
 
 fn joint_t_dist(dists: &DistanceMatrix) -> Array2<f64> {
+//    let mut result = dists.clone();
+//    result.par_mapv_inplace(|v| {
+//        1.0 / (1.0 + v)
+//    });
+//    result /= result.sum();
+//    result
     let n = dists.shape()[0] as usize;
     let all = Array2::from_shape_fn((n, n), |(k, l)| {
         if k == l {
@@ -94,8 +124,6 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
     let mut beta_min = f64::NEG_INFINITY;
     let mut beta_max = f64::INFINITY;
     let mut beta = 1.0;
-
-    let mut iter = 0;
 
     let mut dist = conditional_dist(&dists, i, beta);
 
@@ -125,15 +153,25 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
     (dist, beta)
 }
 
-fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
+fn symmetrised_dist_search_serial(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
     let n = dists.shape()[0] as usize;
-
     let mut result = Array2::zeros((n, n));
     for i in 0..n {
         let (p_ji, _beta) = perp_search(&dists, i, MAX_PERP_SEARCH_ITERS, target_perp);
         result.row_mut(i).assign(&p_ji);
     }
+    (&result + &result.t()) / (2.0f64 * (n as f64))
+}
 
+fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
+    let n = dists.shape()[0] as usize;
+
+    let mut vs = (0..n).into_par_iter().map(|i| {
+        let (p_ji, _beta) = perp_search(&dists, i, MAX_PERP_SEARCH_ITERS, target_perp);
+        p_ji.to_vec()
+    }).flatten().collect();
+
+    let result = Array2::from_shape_vec((n, n), vs).unwrap();
     (&result + &result.t()) / (2.0f64 * (n as f64))
 }
 
@@ -273,6 +311,7 @@ fn main() {
     let mut proj = Array::random((trn_size as usize, 2), normal);
     let mut velocity_prev: Array2<f64> = Array2::zeros((trn_size as usize, 2));
     let dists = distances(&images);
+
     let mut p_ij = symmetrised_dist_search(&dists, PERP) * SIMILARITY_EXAGG_FACTOR;
 
     for i in 0usize..MAX_SGD_ITERS {
@@ -292,7 +331,7 @@ fn main() {
         let avg: Array1<f64> = proj.sum_axis(Axis(0)) / proj.len() as f64;
         proj = &proj - &avg;
 
-        update_proj(&mut buf, &proj, &trn_lbl, if i >= SIMILARITY_EXAGG_STOP_ITER {
+        update_proj(&mut buf, &proj, &trn_lbl, if SHOW_IMGS && i >= SIMILARITY_EXAGG_STOP_ITER {
             Some(&u8_images)
         } else {
             None

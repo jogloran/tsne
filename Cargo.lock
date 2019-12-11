@@ -275,6 +275,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray-parallel"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rayon 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "ndarray-rand"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -594,6 +603,7 @@ dependencies = [
  "mnist 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray-linalg 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ndarray-parallel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray-rand 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openblas-src 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -666,6 +676,7 @@ dependencies = [
 "checksum ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7cf380a8af901ad627594013a3bbac903ae0a6f94e176e47e46b5bbc1877b928"
 "checksum ndarray 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "25b001fc2f5df269365fb77bd8396ce6b1f61c9848f7f088c25e57494bacc57b"
 "checksum ndarray-linalg 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5329c636ef41b1382e3990c130ae969137df487004eec51a6e40384f2f646a7a"
+"checksum ndarray-parallel 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a9444c9e6c2f9d8190cef4734cd2359bc79e16285db578eea76e0ea3dcad7d68"
 "checksum ndarray-rand 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1c49b913157b8472f48b7b28a38950f4f723baa733c33e960355e404c2c82bf5"
 "checksum num 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "4703ad64153382334aa8db57c637364c322d3372e097840c72000dabdcf6156e"
 "checksum num-complex 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "fcb0cf31fb3ff77e6d2a6ebd6800df7fdcd106f2ad89113c9130bcd07f93dffc"
