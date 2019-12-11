@@ -99,7 +99,7 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
 
     let mut dist = conditional_dist(&dists, i, beta);
 
-    while iter < max_iters {
+    for iter in 0..max_iters {
         let cand_perp = perp(&dist);
 
 //        println!("{} {} {} -> {}", beta_min, beta, beta_max, cand_perp);
@@ -119,8 +119,6 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
             }
         }
 
-        iter += 1;
-
         dist = conditional_dist(&dists, i, beta);
     }
 
@@ -132,7 +130,7 @@ fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f
 
     let mut result = Array2::zeros((n, n));
     for i in 0..n {
-        let (p_ji, _s_i) = perp_search(&dists, i, MAX_PERP_SEARCH_ITERS, target_perp);
+        let (p_ji, _beta) = perp_search(&dists, i, MAX_PERP_SEARCH_ITERS, target_perp);
         result.row_mut(i).assign(&p_ji);
     }
 
