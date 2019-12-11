@@ -4,10 +4,12 @@ extern crate mnist;
 extern crate ndarray;
 extern crate ndarray_rand;
 extern crate rand;
+extern crate rayon;
 
 use core::borrow::Borrow;
 use std::iter::*;
 
+use rand::Rng;
 use minifb::*;
 use mnist::{Mnist, MnistBuilder};
 use ndarray::s;
@@ -19,6 +21,7 @@ use libc;
 use std::mem;
 use std::collections::HashMap;
 use std::f64;
+use rayon::prelude::*;
 
 const MAX_PERP_SEARCH_ITERS: u32 = 15;
 const PERP: f64 = 30.0;
@@ -26,7 +29,7 @@ const LR: f64 = 45f64;
 const MAX_SGD_ITERS: usize = 1000;
 const WIDTH: usize = 768;
 const HEIGHT: usize = 768;
-const TRN_SIZE: usize = 2000;
+const TRN_SIZE: usize = 1000;
 const SIMILARITY_EXAGG_FACTOR: f64 = 12.0;
 const SIMILARITY_EXAGG_STOP_ITER: usize = 100;
 
@@ -141,10 +144,11 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
         -> Array2<f64> {
     let n = proj.shape()[0] as usize;
     // result is same size as proj
-    let mut result = Array::zeros(proj.raw_dim());
+    // let mut result = Array::zeros(proj.raw_dim());
     let p_minus_q = p_ij.borrow() - q_ij.borrow();
 
-    for i in 0..n {
+    // for i in 0..n {
+    let d = (0..n).into_par_iter().map(|i| {
         let mut sum = Array1::zeros(2);
         for j in 0..n {
             if i == j {
@@ -156,8 +160,12 @@ fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
                 / (1. + lo_dists[[i, j]]);
         }
         sum *= 4.0;
-        result.row_mut(i).assign(&sum);
-    }
+
+        sum.to_vec()
+    }).flatten().collect();
+    // println!("d {:?}", d);
+    let mut result = Array::from_shape_vec((n, 2), d).unwrap();
+            //result.row_mut(i).assign(&sum);
     result + &(proj * 0.00001)
 }
 
@@ -177,7 +185,14 @@ fn vmax(v: &ArrayView1<f64>) -> f64 {
     })
 }
 
-fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
+fn convert(n: u8) -> u32 {
+    let v: u32 = n.into();
+    0xff000000 | (v << 16) | (v << 8) | v
+}
+
+fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>, imgs: &Array2<u8>) {
+    let mut rng = rand::thread_rng();
+
     let mut lbl_map = HashMap::new();
     lbl_map.insert(0, 0xff_33_ee_22);
     lbl_map.insert(1, 0xff_83_33_fc);
@@ -216,6 +231,18 @@ fn update_proj(buf: &mut Vec<u32>, proj: &Array2<f64>, lbls: &Vec<u8>) {
             buf[yy * WIDTH + xx + 1] = lbl_colour;
             buf[yy * WIDTH + xx] = lbl_colour;
         }
+
+        let img = imgs.slice(s![i, ..]).into_shape((28, 28)).unwrap();
+
+        if rng.gen::<f64>() < 0.1 {
+            if xx >= 28 && yy >= 28 && xx < WIDTH - 28 && yy < HEIGHT - 28 {
+                for i in 0..28 {
+                    for j in 0..28 {
+                        buf[(yy + i) * WIDTH + (xx + j)] = convert(img[[i, j]]);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -225,8 +252,6 @@ fn main() {
     let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
         .label_format_digit()
         .training_set_length(trn_size as u32)
-        .validation_set_length(100)
-        .test_set_length(100)
         .finalize();
 
     let u8_images = Array::from_vec(trn_img)
@@ -267,7 +292,7 @@ fn main() {
         let avg: Array1<f64> = proj.sum_axis(Axis(0)) / proj.len() as f64;
         proj = &proj - &avg;
 
-        update_proj(&mut buf, &proj, &trn_lbl);
+        update_proj(&mut buf, &proj, &trn_lbl, &u8_images);
         window.update_with_buffer_size(&buf, WIDTH, HEIGHT).unwrap();
     }
 }

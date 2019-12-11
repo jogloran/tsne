@@ -17,3 +17,4 @@ openblas-src = { version = "0.7.0", features = ["system"] }
 "minifb" = "*"
 float-ord = "0.2.0"
 libc = "*"
+rayon = "*"
