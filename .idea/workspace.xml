@@ -63,8 +63,8 @@
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src/main.rs">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="3414">
-                  <caret line="318" column="31" lean-forward="true" selection-start-line="318" selection-start-column="31" selection-end-line="318" selection-end-column="31" />
+                <state relative-caret-position="247">
+                  <caret line="218" column="30" selection-start-line="218" selection-start-column="21" selection-end-line="218" selection-end-column="30" />
                   <folding>
                     <element signature="e#4848#4849#0" expanded="true" />
                     <element signature="e#4883#4884#0" expanded="true" />
@@ -109,8 +109,8 @@
           <file pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/src/main.rs">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="209">
-                  <caret line="36" column="25" selection-start-line="36" selection-start-column="25" selection-end-line="36" selection-end-column="25" />
+                <state relative-caret-position="263">
+                  <caret line="65" column="24" lean-forward="true" selection-start-line="65" selection-start-column="24" selection-end-line="65" selection-end-column="24" />
                   <folding>
                     <element signature="e#4848#4849#0" expanded="true" />
                     <element signature="e#4883#4884#0" expanded="true" />
@@ -174,7 +174,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="y" value="23" />
     <option name="width" value="1707" />
     <option name="height" value="977" />
@@ -263,11 +263,11 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="23" width="1707" height="977" extended-state="0" />
+    <frame x="0" y="23" width="2560" height="977" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Captures" order="0" weight="0.25" />
-      <window_info active="true" content_ui="combo" id="Project" order="1" visible="true" weight="0.16696915" />
+      <window_info active="true" content_ui="combo" id="Project" order="1" visible="true" weight="0.110135674" />
       <window_info id="Structure" order="2" side_tool="true" />
       <window_info id="Image Layers" order="3" />
       <window_info id="Designer" order="4" />
@@ -384,8 +384,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="209">
-          <caret line="36" column="25" selection-start-line="36" selection-start-column="25" selection-end-line="36" selection-end-column="25" />
+        <state relative-caret-position="247">
+          <caret line="218" column="30" selection-start-line="218" selection-start-column="21" selection-end-line="218" selection-end-column="30" />
           <folding>
             <element signature="e#4848#4849#0" expanded="true" />
             <element signature="e#4883#4884#0" expanded="true" />

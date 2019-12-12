@@ -55,6 +55,7 @@ const MAP_COLOURS: [u32; 10] = [
 ];
 
 type Data = Array2<f64>;
+type Joint = Array2<f64>;
 type DistanceMatrix = Array2<f64>; // (ndatum, ndatum)
 
 fn distances(data: &Data) -> DistanceMatrix {
@@ -101,7 +102,7 @@ fn conditional_dist(dists: &DistanceMatrix, i: usize, beta: f64) -> Array1<f64> 
     &all / all.sum()
 }
 
-fn joint_t_dist(dists: &DistanceMatrix) -> Array2<f64> {
+fn joint_t_dist(dists: &DistanceMatrix) -> Joint {
 //    let mut result = dists.clone();
 //    result.par_mapv_inplace(|v| {
 //        1.0 / (1.0 + v)
@@ -153,7 +154,7 @@ fn perp_search(dists: &DistanceMatrix, i: usize, max_iters: u32, target_perp: f6
     (dist, beta)
 }
 
-fn symmetrised_dist_search_serial(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
+fn symmetrised_dist_search_serial(dists: &DistanceMatrix, target_perp: f64) -> Joint {
     let n = dists.shape()[0] as usize;
     let mut result = Array2::zeros((n, n));
     for i in 0..n {
@@ -163,7 +164,7 @@ fn symmetrised_dist_search_serial(dists: &DistanceMatrix, target_perp: f64) -> A
     (&result + &result.t()) / (2.0f64 * (n as f64))
 }
 
-fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Array2<f64> {
+fn symmetrised_dist_search(dists: &DistanceMatrix, target_perp: f64) -> Joint {
     let n = dists.shape()[0] as usize;
 
     let mut vs = (0..n).into_par_iter().map(|i| {
@@ -190,8 +191,8 @@ fn perp(dist: &Array1<f64>) -> f64 {
     2.0_f64.powf(entropy(&dist))
 }
 
-fn grad(proj: &Array2<f64>, p_ij: &Array2<f64>, q_ij: &Array2<f64>,
-        lo_dists: &Array2<f64>)
+fn grad(proj: &Array2<f64>, p_ij: &Joint, q_ij: &Joint,
+        lo_dists: &DistanceMatrix)
         -> Array2<f64> {
     let n = proj.shape()[0] as usize;
     // result is same size as proj
